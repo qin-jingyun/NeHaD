@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeHaD | SIGGRAPH Asia 2025</title>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']],
+            processEscapes: true
+        }
+    };
+
+    // --- Magnifying Glass Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const wrappers = document.querySelectorAll('.magnify-wrapper');
+
+            wrappers.forEach(wrapper => {
+                const img = wrapper.querySelector('.magnify-img');
+                const lens = wrapper.querySelector('.magnify-lens');
+                const zoomRatio = parseFloat(img.getAttribute('data-zoom')) || 2.5;
+
+                const setupLens = () => {
+                    lens.style.backgroundImage = `url('${img.src}')`;
+                };
+
+                if (img.complete) {
+                    setupLens();
+                } else {
+                    img.onload = setupLens;
+                }
+
+                wrapper.addEventListener('mousemove', (e) => {
+                    const rect = wrapper.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    const lensOffset = lens.offsetWidth / 2;
+                    lens.style.left = `${x - lensOffset}px`;
+                    lens.style.top = `${y - lensOffset}px`;
+
+                    const bgX = (x / rect.width) * 100;
+                    const bgY = (y / rect.height) * 100;
+
+                    lens.style.backgroundSize = `${rect.width * zoomRatio}px ${rect.height * zoomRatio}px`;
+                    lens.style.backgroundPosition = `${bgX}% ${bgY}%`;
+                });
+            });
+        });
+
+        // --- Audio Logic: Play Once & Reset ---
+    function toggleAudio() {
+        const container = document.querySelector('.audio-control');
+        const audio = document.getElementById('tldrAudio');
+
+        audio.loop = false;
+
+        if (audio.paused) {
+            audio.play().catch(e => console.error("Playback failed:", e));
+            container.classList.add('playing');
+            container.setAttribute('aria-label', 'Pause summary');
+        } else {
+            audio.pause();
+            container.classList.remove('playing');
+            container.setAttribute('aria-label', 'Listen to summary');
+        }
+
+        audio.onended = () => {
+            container.classList.remove('playing');
+            
+            container.setAttribute('aria-label', 'Listen to summary');
+            
+            audio.currentTime = 0;
+        };
+    }
+    </script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- 1. Global Variables --- */
+        :root {
+            /* Brand Gradient: Blue -> Pink -> Blue flow */
+            --grad-brand: linear-gradient(90deg, #3494E6 0%, #EC6EAD 50%, #3494E6 100%);
+            
+            /* Spacing units */
+            --space-xs: 10px;
+            --space-sm: 20px;
+            --space-md: 35px; 
+            
+            /* Colors */
+            --c-bg: #ffffff;
+            --c-text-main: #1a1a1a;
+            --c-text-muted: #666;
+            --c-border: #d1d1d1;
+            --c-accent: #3494E6;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            color: var(--c-text-main);
+            background-color: var(--c-bg);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- 2. Background: Topological Grid (The "Scientific Canvas") --- */
+        .deformation-grid {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background-color: #fff;
+            
+            /* Mathematical grid pattern */
+            background-image: 
+                linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            
+            /* Subtle perspective transform to simulate a "Field" */
+            transform: perspective(1000px) rotateX(2deg);
+            transform-origin: top center;
+        }
+
+        /* Texture noise for paper-like feel */
+        .ambient-noise {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 0%, rgba(52, 148, 230, 0.05), transparent 70%),
+                        radial-gradient(circle at 100% 100%, rgba(236, 110, 173, 0.05), transparent 60%);
+            pointer-events: none;
+        }
+
+        /* --- 2. Top Fade-out Background --- */
+        .hero-background {
+            position: absolute;
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 70%; /* Limits background to top area (Header + Buttons) */
+            z-index: -1;
+            
+            /* Background Image Setup */
+            background-image: url('./images/bg.jpg');
+            background-size: cover;
+            background-position: center top;
+            background-repeat: no-repeat;
+            
+            /* Make it subtle */
+            opacity: 0.5; 
+            
+            /* Fade out effect: Gradient Mask */
+            /* Visible (black) at top, Transparent at bottom */
+            -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+            mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+            
+            pointer-events: none;
+        }
+
+        /* --- 3. Container --- */
+        .container {
+            max-width: 900px; /* Optimal reading width */
+            margin: 0 auto;
+            padding: 50px 20px 50px 20px;
+        }
+
+        /* --- 4. Header Section --- */
+        .header {
+            text-align: center;
+            margin-bottom: var(--space-md);
+            padding-bottom: var(--space-sm);
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        /* Title: Uniform Style enforced */
+        h1.title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 2.7rem; 
+            line-height: 1.2;
+            color: #000;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.02em;
+        }
+        
+        .title-line {
+            display: block;
+        }
+
+        /* Conference Name Style */
+        .conference-name {
+            font-family: 'JetBrains Mono', monospace; /* Different font from Title/Authors */
+            font-size: 1.55rem; /* Size: Title > Conf > Authors */
+            font-weight: 500;
+            margin-bottom: 10px;
+            
+            /* Gradient Text Style */
+            background-image: var(--grad-brand);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        /* Authors */
+        .authors {
+            font-size: 1.15rem;
+            margin-bottom: 5px;
+        }
+        
+        .author-name {
+            display: inline-block;
+            margin: 0 10px;
+            text-decoration: none;
+            color: #222;
+            font-weight: 500;
+            position: relative;
+            cursor: pointer;
+            
+            /* Gradient Effect (Hover) */
+            background-image: var(--grad-brand);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            transition: all 0.5s ease;
+        }
+        
+        .author-name:hover {
+            -webkit-text-fill-color: transparent;
+            background-position: right center;
+        }
+
+        .affiliations {
+            font-size: 1.0rem;
+            color: var(--c-text-muted);
+        }
+
+        /* Buttons: Compact & Sleek */
+        .btn-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 13px;
+        }
+
+        .pill-btn {
+            background-image: var(--grad-brand);
+            background-size: 200% auto;
+            color: #fff;
+            padding: 6px 20px; /* Reduced height */
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 10px rgba(52, 148, 230, 0.2);
+            transition: background-position 0.5s ease, box-shadow 0.3s ease;
+        }
+
+        .pill-btn:hover {
+            background-position: right center;
+            box-shadow: 0 5px 15px rgba(236, 110, 173, 0.3);
+        }
+
+        /* --- 5. REDESIGNED TL;DR Module --- */
+        /* Changed to Top-Bottom layout to avoid whitespace gaps */
+        .tldr-box {
+            background: rgba(52, 148, 230, 0.03); /* Extremely subtle blue tint */
+            border: 1px solid rgba(52, 148, 230, 0.15);
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+        }
+        
+        .tldr-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            /* border-bottom: 1px solid rgba(52, 148, 230, 0.1); */
+            /* padding-bottom: 5px; */
+        }
+
+        .tldr-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Minimalist Audio Button */
+        .audio-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .audio-control:hover {
+            border-color: #3494E6;
+            color: #3494E6;
+            background: rgba(52, 148, 230, 0.05);
+            transform: scale(1.05);
+        }
+
+        /* Active State (Playing) */
+        .audio-control.playing {
+            border-color: #3494E6;
+            background: #3494E6;
+            color: #fff;
+        }
+
+        /* Icon State Management */
+        .audio-control.playing #audioIcon {
+            display: none; /* Hide volume icon when playing */
+        }
+
+        /* Wave Animation (Only visible when playing) */
+        .audio-wave {
+            display: none;
+            align-items: center;
+            gap: 2px;
+            height: 12px;
+        }
+
+        .audio-control.playing .audio-wave {
+            display: flex;
+        }
+
+        .audio-wave span {
+            width: 2px;
+            background-color: #fff;
+            border-radius: 2px;
+            animation: quietWave 1s infinite ease-in-out;
+        }
+
+        .audio-wave span:nth-child(1) { height: 6px; animation-delay: 0.0s; }
+        .audio-wave span:nth-child(2) { height: 12px; animation-delay: 0.1s; }
+        .audio-wave span:nth-child(3) { height: 8px; animation-delay: 0.2s; }
+
+        @keyframes quietWave {
+            0%, 100% { transform: scaleY(0.5); }
+            50% { transform: scaleY(1); }
+        }
+        
+        .tldr-icon {
+            color: var(--c-accent);
+            font-size: 1rem;
+        }
+        
+        .tldr-label {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: var(--c-accent);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .tldr-content {
+            font-size: 0.95rem;
+            color: #333;
+        }
+
+        /* Specific styles for the new list structure */
+        .tldr-intro {
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .tldr-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 15px 0;
+        }
+
+        .tldr-list li {
+            margin-bottom: 10px;
+            padding-left: 18px;
+            position: relative;
+        }
+
+        /* Custom bullet points */
+        .tldr-list li::before {
+            content: '•';
+            color: var(--c-accent);
+            position: absolute;
+            left: 0;
+            top: 0px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        .tldr-item-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: #222;
+            margin-right: 4px;
+        }
+
+        .tldr-conclusion {
+            margin-top: 10px;
+            font-weight: 600;
+            color: #1a1a1a;
+            font-style: italic;
+            border-top: 1px dashed rgba(0,0,0,0.1);
+            padding-top: 10px;
+        }
+
+        /* --- 6. Content Flow --- */
+        .content-section {
+            margin-bottom: 30px;
+        }
+
+        /* Figure Before Content */
+        .figure-content-section {
+            margin-bottom: 15px;
+        }
+
+        /* Content Before Figure */
+        .content-figure-section {
+            margin-bottom: 15px;
+        }
+
+        .citation-section {
+            margin-top: 40px;
+            margin-bottom: 30px;
+        }
+
+        .content-section ul {
+            margin-bottom: 0;
+        }
+
+        .content-section li {
+            text-align: justify;
+        }
+
+        .figure-content-section ul {
+            margin-bottom: 0;
+        }
+
+        .figure-content-section li {
+            text-align: justify;
+        }
+
+        .content-figure-section ul {
+            margin-bottom: 0;
+        }
+
+        .content-figure-section li {
+            text-align: justify;
+        }
+
+        /* Headings */
+        h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #000;
+            margin-top: 0;
+            margin-bottom: 20px;
+            letter-spacing: -0.01em;
+            position: relative;
+            display: inline-block;
+        }
+        
+        /* Small underline accent for headers */
+        h2::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 2.2px;
+            background: linear-gradient(90deg, #3494E6 20%, #EC6EAD, transparent);
+            margin-top: 5px;
+            opacity: 0.5;
+        }
+
+        p {
+            margin-top: 0;
+            margin-bottom: 0;
+            text-align: justify;
+        }
+
+        /* Teaser Image */
+        .teaser-img {
+            width: 100%;
+            border-radius: 6px;
+            /* Thin border for definition against white bg */
+            border: 1px solid rgba(0,0,0,0.05); 
+            display: block;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        
+        .caption {
+            font-size: 0.9rem;
+            color: var(--c-text-muted);
+            text-align: justify;
+            /* border-bottom: 1px solid var(--c-border); */
+            padding-bottom: 0;
+        }
+        .caption strong { color: #000; font-weight: 600; }
+
+        /* Math: Center & Clean */
+        .math-block {
+            text-align: center;
+            margin: 0 0;
+            overflow-x: auto;
+            color: #111;
+        }
+
+        /* Method Sub-heading Style */
+        .method-heading {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: #222;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding-left: 20px; /* Space for the dot */
+        }
+
+        .method-heading-1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: #222;
+            margin-top: 0;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding-left: 20px; /* Space for the dot */
+        }
+
+        /* The Blue Dot */
+        .method-heading::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 8px; 
+            height: 8px;
+            background-color: #3494E6; /* Your brand blue */
+            border-radius: 50%;
+        }
+
+        .method-heading-1::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 8px; 
+            height: 8px;
+            background-color: #3494E6; /* Your brand blue */
+            border-radius: 50%;
+        }
+
+        /* --- 7. Results Gallery (Strict 2-Column Grid) --- */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .result-cell {
+            background: #fafafa;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        
+        /* .result-cell:hover {
+            transform: scale(1.08);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        } */
+        
+        .result-cell img, .result-cell video {
+            width: 100%;
+            display: block;
+        }
+        
+        .label-overlay {
+            padding: 8px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #555;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            background: #fff;
+        }
+
+        /* --- 8. BibTeX (Code Block) --- */
+        .bibtex-wrapper {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            position: relative;
+        }
+        
+        .bibtex-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #333;
+            white-space: pre-wrap;
+            margin: 0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px; right: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            border-color: #333;
+            color: #000;
+        }
+
+        footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        @media (max-width: 600px) {
+            h1.title { font-size: 1.8rem; }
+            .results-grid { grid-template-columns: 1fr; }
+        }
+
+        /* --- Results Section Styling --- */
+        
+        /* --- Spacing --- */
+        .results-intro {
+            margin-bottom: 20px; /* Increased spacing between text and video */
+            text-align: justify;
+        }
+
+        .section-intro {
+            margin-top: 30px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* --- Media Containers (Video & Images) --- */
+        .media-container {
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 8px;
+            /* CRITICAL CHANGE: Changed from hidden to visible so lens pops out */
+            overflow: visible; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            transition: box-shadow 0.3s ease;
+            position: relative; /* Context for absolute positioning */
+        }
+        
+        .media-container:hover {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            z-index: 10; /* Ensure active container is on top */
+        }
+
+        /* Video specific spacing */
+        .video-wrapper {
+            margin-bottom: 0; 
+        }
+
+        .responsive-media {
+            width: 100%;
+            display: block;
+            border-top-left-radius: 8px; /* Manually round corners */
+            border-top-right-radius: 8px;
+        }
+
+        /* Stack Layout */
+        .results-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 30px; /* Space between comparison blocks */
+        }
+
+        /* Unified Label Style (Used for both Video and Images) */
+        .label-overlay {
+            padding: 12px;
+            text-align: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #444;
+            background: #fafafa;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            border-bottom-left-radius: 8px; /* Manually round corners */
+            border-bottom-right-radius: 8px;
+        }
+
+        /* --- Magnifying Glass Component --- */
+        
+        .magnify-wrapper {
+            position: relative;
+            cursor: none; 
+            /* CRITICAL CHANGE: Visible overflow allows lens to go over edges */
+            overflow: visible; 
+        }
+
+        .magnify-img {
+            width: 100%;
+            display: block;
+            pointer-events: none; 
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .magnify-lens {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            
+            /* Enhanced Lens Style */
+            border: 4px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 
+                0 0 0 1px rgba(0,0,0,0.1), /* Inner stroke definition */
+                0 10px 30px rgba(0,0,0,0.4), /* Drop shadow */
+                inset 0 0 20px rgba(0,0,0,0.2); /* Inner depth */
+            
+            background-repeat: no-repeat;
+            background-color: #fff;
+            
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.2s, transform 0.2s;
+            pointer-events: none;
+            z-index: 100; /* High Z-index to float over everything */
+        }
+
+        .magnify-wrapper:hover .magnify-lens {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Hint text */
+        .zoom-hint {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 5;
+        }
+
+        .magnify-wrapper:hover .zoom-hint {
+            opacity: 0;
+        }
+
+        /* --- 9. Bottom Fade-out Background --- */
+        .bottom-background {
+            position: fixed;
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            z-index: -1;
+            
+            background-image: url('./images/bg-bottom.jpg');
+            background-size: cover;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            
+            opacity: 0.5; 
+            
+            -webkit-mask-image: linear-gradient(to bottom, transparent 10%, black 100%);
+            mask-image: linear-gradient(to bottom, transparent 10%, black 100%);
+            
+            pointer-events: none;
+        }
+
+        .gradient-link {
+            font-weight: 700;
+            text-decoration: none;
+            
+            background-image: var(--grad-brand);
+            background-size: 200% auto;
+            
+            background-clip: text;
+            -webkit-background-clip: text;
+            
+            -webkit-text-fill-color: transparent;
+            color: #3494E6;
+            
+            transition: background-position 0.5s ease;
+        }
+
+        .gradient-link:hover {
+            background-position: right center;
+        }
+
+        /* =========================================
+           Mobile & iOS Optimization
+           ========================================= */
+    
+        /* 1. Global iOS Fixes */
+        html {
+            -webkit-text-size-adjust: 100%; /* Prevent auto-scaling */
+        }
+        
+        /* 2. Styles for Mobile Devices (max-width 768px) */
+        @media (max-width: 768px) {
+            
+            /* --- Layout & Spacing --- */
+            .container {
+                /* Standard iOS margin is 16px-20px. 
+                20px looks cleaner on iPhone 14/15 Pro Max widths. */
+                padding: 30px 20px 80px 20px;
+                max-width: 100%;
+            }
+
+            /* --- Typography: Optimized Left Alignment --- */
+            /* Left align is standard for mobile to avoid uneven word spacing. */
+            p, li, .caption, .tldr-content {
+                text-align: left !important; 
+                
+                /* CRITICAL: Enable Hyphenation */
+                /* This softens the ragged right edge, making it look neat */
+                -webkit-hyphens: auto;
+                -ms-hyphens: auto;
+                hyphens: auto;
+                
+                /* Sizing tuned for iPhone readability */
+                font-size: 1.05rem; /* ~17px base size */
+                line-height: 1.65;  /* Slightly looser lines for comfort */
+                letter-spacing: -0.01em; /* Tighter tracking for modern sans-serifs */
+                color: #222; /* High contrast for mobile screens */
+            }
+
+            /* Title: Scale down for mobile headers */
+            h1.title {
+                font-size: 1.9rem; /* Approx 30px */
+                line-height: 1.3;
+                margin-bottom: 20px;
+            }
+            
+            .title-line {
+                display: inline; /* Wrap naturally */
+            }
+            
+            .conference-name {
+                font-size: 1rem;
+                white-space: normal;
+            }
+
+            /* Authors: Increase vertical spacing for touch targets */
+            .authors {
+                font-size: 1rem;
+                line-height: 1.8;
+                padding: 0 5px;
+            }
+
+            /* --- Components --- */
+
+            /* Buttons: Grid layout */
+            .btn-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr; /* 2 buttons per row */
+                gap: 12px;
+                margin-top: 30px;
+            }
+            
+            .pill-btn {
+                font-size: 0.85rem;
+                padding: 12px 0; /* Taller touch target (44px min recommended) */
+                justify-content: center;
+                width: auto;
+            }
+
+            /* TL;DR: Tighter padding */
+            .tldr-box {
+                padding: 20px; /* Comfortable padding */
+                margin-bottom: 30px;
+            }
+            .tldr-list li {
+                padding-left: 15px; 
+            }
+
+            /* Results Grid: Single Column for visibility */
+            .results-grid {
+                grid-template-columns: 1fr; 
+                gap: 30px;
+            }
+
+            /* Background: Fade out earlier */
+            .hero-background {
+                height: 420px; 
+                opacity: 0.25; 
+                background-position: top center;
+                background-size: cover;
+            }
+            
+            /* Math Equations: Horizontal Scroll */
+            .math-block {
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+                /* Visual full-bleed effect */
+                margin-left: -20px; 
+                margin-right: -20px;
+                padding-left: 20px;
+                padding-right: 20px;
+                font-size: 0.95rem; 
+            }
+            
+            /* Hide Magnifier on Touch Devices */
+            .magnify-lens, .zoom-hint {
+                display: none !important;
+            }
+            .magnify-img {
+                pointer-events: auto; /* Enable native pinch-to-zoom */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- <div class="deformation-grid"></div> -->
+    <div class="hero-background"></div>
+    <div class="ambient-noise"></div>
+
+    <div class="container">
+        
+        <header class="header">
+            <h1 class="title">
+                <span class="title-line">Neural Hamiltonian Deformation Fields for</span>
+                <span class="title-line">Dynamic Scene Rendering</span>
+            </h1>
+
+            <div class="conference-name">
+                <a href="https://asia.siggraph.org/2025" class="author-name">SIGGRAPH Asia 2025</a>
+            </div>
+            
+            <div class="authors">
+                <a href="https://scholar.google.com/citations?user=N33wbdEAAAAJ" class="author-name">Hai-Long Qin<sup>1</sup></a>
+                <a href="https://scholar.google.com/citations?user=f9s8H6UAAAAJ" class="author-name">Sixian Wang<sup>2</sup></a>
+                <a href="https://scholar.google.com/citations?user=R9iwlJcAAAAJ" class="author-name">Guo Lu<sup>2</sup></a>
+                <a href="https://scholar.google.com/citations?user=0I_YtFsAAAAJ" class="author-name">Jincheng Dai<sup>1</sup></a>
+            </div>
+            
+            <div class="affiliations">
+                <sup>1</sup>Beijing University of Posts and Telecommunications (BUPT)<br>
+                <sup>2</sup>Shanghai Jiao Tong University (SJTU)
+            </div>
+
+            <div class="btn-row">
+                <a href="#" class="pill-btn"><i class="fa-regular fa-file-pdf"></i> Paper</a>
+                <a href="./assets/poster.pdf" class="pill-btn"><i class="fa-regular fa-image"></i> Poster</a>
+                <a href="./assets/slide.pdf" class="pill-btn"><i class="fa-solid fa-layer-group"></i> Slide</a>
+                <a href="https://youtu.be/5MwP_wGIUVA" class="pill-btn"><i class="fa-brands fa-youtube"></i> Video</a>
+            </div>
+        </header>
+
+        <div class="tldr-box">
+            <div class="tldr-header">
+                <div class="tldr-title-group">
+                    <i class="fa-solid fa-bolt tldr-icon"></i>
+                    <span class="tldr-label">TL;DR</span>
+                </div>
+                
+                <div class="audio-control" onclick="toggleAudio()" aria-label="Listen to summary" role="button" tabindex="0">
+                    <i class="fa-solid fa-volume-high" id="audioIcon"></i>
+                    <div class="audio-wave" id="audioWave">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <audio id="tldrAudio" src="./assets/intro.wav"></audio>
+                </div>
+            </div>
+            <div class="tldr-content">
+                <p class="tldr-intro">
+                    We reformulate dynamic Gaussian deformation as Hamiltonian dynamics, enabling neural networks to learn physical conservation laws directly from data.
+                </p>
+                <ul class="tldr-list">
+                    <li>
+                        <span class="tldr-item-title">Hamiltonian Neural Network Decoder</span>
+                        Learn energy-conserving deformation fields through symplectic gradients, replacing purely data-driven MLPs with physics-informed inductive biases.
+                    </li>
+                    <li>
+                        <span class="tldr-item-title">Boltzmann Equilibrium Decomposition</span>
+                        Adaptively separate static and dynamic Gaussians via soft masks based on their deviation from spatial-temporal equilibrium states.
+                    </li>
+                    <li>
+                        <span class="tldr-item-title">Physics-Informed Constraints</span>
+                        Ensure long-term stability through symplectic integration for position dynamics and local rigidity regularization for rotation dynamics.
+                    </li>
+                </ul>
+                <p class="tldr-conclusion">
+                    In a word, NeHaD achieves physically plausible motion with state-of-the-art rendering quality.
+                </p>
+            </div>
+        </div>
+
+        <section class="content-figure-section">
+            <h2>Abstract</h2>
+            <p>
+                Representing dynamic scenes with realistic motion remains challenging as existing methods often produce physically implausible deformations. <strong>We introduce NeHaD, a neural deformation field for dynamic Gaussian splatting governed by Hamiltonian mechanics.</strong> Our key innovation replaces MLP-based deformation with Hamiltonian neural networks that model Gaussians evolving along energy-conserving trajectories in phase space, ensuring natural dynamics. We introduce Boltzmann equilibrium decomposition for energy-aware static/dynamic separation, and employ symplectic integration with rigidity constraints to handle real-world dissipation. Additionally, we extend NeHaD to adaptive streaming through scale-aware mipmapping. Extensive experiments demonstrate that NeHaD achieves physically plausible dynamic rendering with good quality-efficiency trade-offs, <strong>representing the first application of Hamiltonian mechanics to Gaussian deformation.</strong>
+            </p>
+        </section>
+
+        <section class="content-section">
+            <img src="./images/teaser.svg" class="teaser-img">
+            <div class="caption">
+                <strong>Figure 1.</strong> Our method uses Hamiltonian mechanics to enhance dynamic Gaussian splatting for improved rendering quality and motion coherence.
+                (a) Human cognition process. (b) Scene rendering process. (c) Both processes follow physical laws, with Hamiltonian mechanics offering mathematical frameworks aligned with physical intuition.
+                (d) Our method incorporates Hamiltonian mechanics as a physical prior in dynamic Gaussian splatting, improving rendering reality (4. different colors represent different deformations, and our method reduces overlap while keeping structural clusters).
+            </div>
+        </section>
+
+        <section id="Method" class="content-figure-section">
+            <h2>Method</h2>
+            
+            <h3 class="method-heading-1">Hamiltonian Neural Network Decoder</h3>
+            <p>
+                To address the lack of physics-informed inductive biases in standard MLP decoders, we propose a <strong>Hamiltonian Neural Network (HNN)</strong> decoder. Explicitly defining position-momentum coordinates $(\boldsymbol{q}, \boldsymbol{p})$ for high-dimensional Gaussians is intractable; consequently, we substitute them with implicit latent representations $\boldsymbol{h}$ extracted from hex-planes as the input to the HNN. Meanwhile, the core of simulating Hamiltonian dynamics lies in learning the vector field $\boldsymbol{v}$ from these implicit features. However, directly learning this high-dimensional field is challenging due to potential mode collapse and the difficulty of enforcing conservation constraints. To address this, we propose decomposing the vector field and instead learning two scalar potentials, $F_1$ and $F_2$, to effectively generate the dynamics via automatic differentiation. Specifically, the <strong>conservative field</strong> $\boldsymbol{v}_c$ (preserving energy) and <strong>solenoidal field</strong> $\boldsymbol{v}_s$ (preserving volume) are formulated as:
+            </p>
+            
+            <div class="math-block">
+                $$ 
+                \boldsymbol{v}_{c} = \nabla_{\boldsymbol{h}} F_1(\boldsymbol{h}), \quad 
+                \boldsymbol{v}_{s} = \nabla_{\boldsymbol{h}} F_2(\boldsymbol{h}) \boldsymbol{M}^{\top}, \quad 
+                \boldsymbol{M} = \begin{bmatrix} \boldsymbol{0} & \mathbf{I} \\ -\mathbf{I} & \boldsymbol{0} \end{bmatrix} 
+                $$
+            </div>
+            
+            <p>
+                Here, $\boldsymbol{M}$ is the symplectic permutation matrix. The total vector field $\boldsymbol{v} = \boldsymbol{v}_c + \boldsymbol{v}_s$ is finally projected by lightweight adapters $\mathcal{A}$ to obtain deformations for Gaussian attributes ($\Delta \boldsymbol{\mu}, \Delta \boldsymbol{s}, \Delta \boldsymbol{r}$), <i>e.g.</i>, $\Delta \boldsymbol{\mu} = \mathcal{A}_{\boldsymbol{\mu}}(\boldsymbol{v})$.
+            </p>
+
+            <h3 class="method-heading">Boltzmann Equilibrium Decomposition</h3>
+            <p>
+                Indiscriminately deforming all primitives leads to computational inefficiency and potential artifacts. We introduce a statistical mechanics approach to adaptively mask Gaussians based on their deviation from learned equilibrium states. We employ distinct decomposition strategies tailored to the visual characteristics of specific attributes:
+            </p>
+            <ul>
+                <li>
+                    <strong>Position $\boldsymbol{\mu}$ (Spatial-Temporal):</strong> Position dynamics require <em>dual selectivity</em>. We model the energy deviation $E_{st}$ based on both spatial distance and temporal context to filter out static regions.
+                </li>
+                <li>
+                    <strong>Scaling $\boldsymbol{s}$ (Temporal-Only):</strong> Scaling contributes to fine-grained surface details and requires <em>spatial universality</em>. We model the energy $E_{t}$ based solely on temporal deviation to preserve texture authenticity.
+                </li>
+            </ul>
+            <p>
+                The soft activation masks are formulated using the Boltzmann distribution. Take position dynamics as an example:
+            </p>
+
+            <div class="math-block">
+                $$ 
+                M = (1 - \gamma) \cdot \exp(-\beta E) + \gamma, \quad 
+                \boldsymbol{\mu}' = \boldsymbol{\mu} + \Delta\boldsymbol{\mu} \odot (1 - M_{pos})
+                $$
+            </div>
+
+            <p>
+                Here, $\beta$ represents the inverse temperature controlling the sharpness of the distribution, and $\gamma$ ensures a minimum responsiveness floor. The symbol $\odot$ denotes the Hadamard (element-wise) product. Consequently, primitives far from equilibrium (high energy) undergo significant deformation, while stable ones remain static.
+            </p>
+
+            <h3 class="method-heading">Physics-Informed Constraints</h3>
+            <p>
+                Real-world dynamics are inherently dissipative due to friction and other non-conservative forces. This deviation from strict energy conservation can mislead the HNN into generating erroneous deformation fields. To mitigate this and strictly enforce physical plausibility, we impose explicit constraints tailored to the attribute dynamics:
+            </p>
+            <ul>
+                <li>
+                    <strong>Position $\boldsymbol{\mu}$ (Symplectic Integration):</strong> Standard integrators often suffer from numerical energy drift. We adopt the <em>Position Verlet</em> scheme to govern translational evolution. We interpret the predicted deformation $\Delta \boldsymbol{\mu}$ as instantaneous <em>velocity</em> and the negative potential gradient $-\nabla \mathcal{U}$ as the physical <em>force</em> (acceleration) $\boldsymbol{F}$ driving the primitive:
+                    <div class="math-block">
+                        $$ \tilde{\boldsymbol{\mu}} = \boldsymbol{\mu} + \Delta t \cdot \Delta \boldsymbol{\mu} + \frac{(\Delta t)^2}{2} \boldsymbol{F} $$
+                    </div>
+                </li>
+                <li>
+                    <strong>Rotation $\boldsymbol{r}$ (Rigidity Regularization):</strong> Unconstrained rotation predictions often lead to unrealistic twisting artifacts. Inspired by As-Rigid-As-Possible (ARAP) principles, we enforce local rigidity by clamping the rotation magnitude. The rotation angle $\phi$ is constrained via a smooth saturation function:
+                    <div class="math-block">
+                        $$ \phi^{\prime} = \phi_{max} \cdot \tanh\left(\frac{\phi}{\phi_{max}}\right), \quad \boldsymbol{r}^{\prime} = \mathcal{N}(\boldsymbol{r} \otimes \Delta \boldsymbol{r}^{\prime}) $$
+                    </div>
+                </li>
+            </ul>
+            
+            <p>
+                Here, $\phi_{max}$ defines the maximum allowable rotation per timestamp. The symbol $\otimes$ represents the standard quaternion multiplication, and $\mathcal{N}(\cdot)$ denotes the normalization operation to ensure valid unit quaternions.
+            </p>
+        </section>
+
+        <section class="content-section">
+            <img src="./images/method.svg" class="teaser-img">
+            <div class="caption">
+                <strong>Figure 2.</strong> Overall pipeline of NeHaD. (from left to right) An HNN with MLP baseline learns conservation laws from data. Through backpropagation of Hamiltonian gradients, the HNN optimizes vector fields and predicts Gaussian deformations (position, scaling, rotation) via adapters.
+                The Boltzmann equilibrium decomposition decides which primitives should not be deformed with soft masks, <i>i.e.</i>, smaller deviations from equilibrium maintain static during deformation.
+                Physics-informed constraints including symplectic integration and rigidity regularization are used to preserve system properties.
+            </div>
+
+            <h3 class="method-heading">Adapting NeHaD to Adaptive Streaming</h3>
+            <p>
+                For efficient transmission and rendering across varying network bandwidths and device capabilities, we extend NeHaD with two strategic enhancements focusing on anti-aliasing and Level-of-Detail (LOD) management:
+            </p>
+            <ul>
+                <li>
+                    <strong>Scale-aware Anisotropic MipMapping:</strong> To address aliasing artifacts caused by varying viewing distances, we implement a multi-level texture sampling strategy. We compute an adaptive mipmap level $\hat{\boldsymbol{l}}$ that smoothly interpolates between isotropic and anisotropic regimes. The final level is determined by the principal level $\boldsymbol{L}$ and an anisotropy regularization factor $\beta(\rho)$:
+                    <div class="math-block">
+                        $$ \hat{\boldsymbol{l}} = \boldsymbol{L} - \beta(\rho) \cdot (\boldsymbol{L} - \bar{L}\boldsymbol{1}), \quad \beta(\rho) = \frac{\tanh(\rho/3-1)}{1+\tanh(\rho/3-1)} $$
+                    </div>
+                </li>
+                <li>
+                    <strong>Layered Progressive Optimization:</strong> For adaptive bit-rate streaming, we adopt a coarse-to-fine optimization strategy. We begin with a base set of ground Gaussians $\mathcal{G}_0$ for the lowest quality level. As training progresses to higher resolutions, we adaptively accumulate residual enhancement layers $\Delta \mathcal{G}_j$ based on opacity thresholds:
+                    <div class="math-block">
+                        $$ \mathcal{G}_i = \mathcal{G}_0 + \sum_{j=1}^{i} \Delta \mathcal{G}_j, \quad j \in \{1, 2, \dots, N\} $$
+                    </div>
+                </li>
+            </ul>
+            <p>
+                Here, $\rho$ represents the anisotropy ratio derived from scale extrema, $\boldsymbol{1}$ denotes the all-ones vector used to broadcast the scalar mean $\bar{L}$, and $N$ indicates the total number of LOD levels. This layered architecture allows the system to fine-tune transmission rates dynamically while preserving high-fidelity rendering details.
+            </p>
+        </section>
+
+        <section class="content-section">
+            <h2>Results</h2>
+            <p class="results-intro">
+                We compare NeHaD with state-of-the-art models on three datasets: the synthetic <strong>D-NeRF</strong>, the monocular real-world <strong>HyperNeRF</strong>, and the multi-view real-world <strong>DyNeRF</strong>. Our method consistently outperforms baseline models in visual perception, delivering realistic renderings with coherent dynamic motion.
+                You can download the full-resolution demo video via this <a href="https://drive.google.com/uc?export=download&id=1WS3uVbFnLJyFXuTVC-znIASx7n4Bep87" class="gradient-link">Google Drive link</a>.
+            </p>
+
+            <div class="media-container video-wrapper">
+                <video controls autoplay loop muted playsinline class="responsive-media">
+                    <source src="./assets/demo.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="label-overlay">
+                    Comprehensive Qualitative Rendering Results
+                </div>
+            </div>
+
+            <p class="section-intro">
+                Below we visualize the qualitative comparisons. Hover over the images to inspect fine-grained details.
+            </p>
+            
+            <div class="results-stack">
+                
+                <div class="media-container result-cell">
+                    <div class="magnify-wrapper">
+                        <img src="./assets/dnerf-results.svg" alt="D-NeRF Comparison" class="magnify-img" data-zoom="3">
+                        <div class="magnify-lens"></div>
+                        <div class="zoom-hint"><i class="fa-solid fa-magnifying-glass"></i> Hover to Zoom</div>
+                    </div>
+                    <div class="label-overlay">Comparison on D-NeRF Dataset</div>
+                </div>
+
+                <div class="media-container result-cell">
+                    <div class="magnify-wrapper">
+                        <img src="./assets/hypernerf-results.svg" alt="HyperNeRF Comparison" class="magnify-img" data-zoom="3">
+                        <div class="magnify-lens"></div>
+                        <div class="zoom-hint"><i class="fa-solid fa-magnifying-glass"></i> Hover to Zoom</div>
+                    </div>
+                    <div class="label-overlay">Comparison on HyperNeRF Dataset</div>
+                </div>
+
+                <div class="media-container result-cell">
+                    <div class="magnify-wrapper">
+                        <img src="./assets/dynerf-results.svg" alt="DyNeRF Comparison" class="magnify-img" data-zoom="3">
+                        <div class="magnify-lens"></div>
+                        <div class="zoom-hint"><i class="fa-solid fa-magnifying-glass"></i> Hover to Zoom</div>
+                    </div>
+                    <div class="label-overlay">Comparison on DyNeRF Dataset</div>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="citation-section">
+            <h2>Citation</h2>
+            <div class="bibtex-wrapper">
+                <button class="copy-btn" onclick="copyBibtex()">Copy</button>
+<pre class="bibtex-code" id="bibtex-text">
+@inproceedings{qin-nehad,
+    title = {Neural Hamiltonian Deformation Fields for Dynamic Scene Rendering},
+    author = {Qin, Hai-Long and Wang, Sixian and Lu, Guo and Dai, Jincheng},
+    booktitle = {SIGGRAPH Asia 2025 Conference Papers},
+    pages = {1--11},
+    year = {2025}
+}
+</pre>
+            </div>
+        </section>
+
+        <footer>
+            Copyright © 2025 Hai-Long Qin. All Rights Reserved.
+        </footer>
+
+    </div>
+
+    <script>
+        function copyBibtex() {
+            const text = document.getElementById('bibtex-text').textContent;
+            navigator.clipboard.writeText(text.trim()).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = 'Copied!';
+                btn.style.borderColor = '#10b981';
+                btn.style.color = '#10b981';
+                btn.blur();
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }, 2000);
+            });
+        }
+    </script>
+
+    <div class="bottom-background"></div>
+</body>
+</html>
