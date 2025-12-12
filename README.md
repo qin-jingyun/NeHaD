@@ -3,12 +3,12 @@
 # Neural Hamiltonian Deformation Fields for<br>Dynamic Scene Rendering
 
 [![Conference](https://img.shields.io/badge/SIGGRAPH_Asia-2025-blue.svg)](https://asia.siggraph.org/2025)
-[![arXiv](https://img.shields.io/badge/arXiv-25XX.XXXXX-b31b1b.svg)](https://arxiv.org/abs/25XX.XXXXX)
+[![arXiv](https://img.shields.io/badge/arXiv-2512.10424-b31b1b.svg)](https://arxiv.org/abs/2512.10424)
 [![Project Page](https://img.shields.io/badge/Project-Page-green.svg)](https://qin-jingyun.github.io/NeHaD/)
 [![Video](https://img.shields.io/badge/Video-YouTube-FF0000.svg?logo=youtube&logoColor=white)](https://youtu.be/5MwP_wGIUVA)
 
-[![Poster](https://img.shields.io/badge/Poster-PDF-orange.svg)](./assets/poster.pdf)
-[![Slide](https://img.shields.io/badge/Slide-PDF-yellow.svg)](./assets/slide.pdf)
+[![Poster](https://img.shields.io/badge/Poster-PDF-orange.svg)](https://qin-jingyun.github.io/NeHaD/assets/poster.pdf)
+[![Slide](https://img.shields.io/badge/Slide-PDF-yellow.svg)](https://qin-jingyun.github.io/NeHaD/assets/slide.pdf)
 [![License](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](LICENSE)
 [![Email](https://img.shields.io/badge/Contact-Email-blue.svg)](mailto:hailong.qin@bupt.edu.cn)
 
@@ -46,7 +46,7 @@ Representing and rendering dynamic scenes with complex motions remains challengi
 
 ## 🔥 Dynamic Rendering Showcase
 
-The video below demonstrates the qualitative rendering results on D-NeRF, HyperNeRF, and DyNeRF datasets. You can download the full-resolution demo video via this [Google Drive link](https://drive.google.com/uc?export=download&id=1WS3uVbFnLJyFXuTVC-znIASx7n4Bep87).
+The video [here](./assets/demo.mp4) demonstrates the qualitative rendering results on D-NeRF, HyperNeRF, and DyNeRF datasets. You can download the full-resolution demo video via this [Google Drive link](https://drive.google.com/uc?export=download&id=1WS3uVbFnLJyFXuTVC-znIASx7n4Bep87).
 
 <!-- <p align="center">
   <a href="./assets/demo.mp4">
